@@ -1,19 +1,25 @@
 #include <Arduino.h>
 #include <ArduinoOTA.h>
-#include <WiFi.h>
+// #include <WiFi.h>
+#include <Wire.h>
+#include <ESPAsyncWebServer.h>
+#include "esp_camera.h"
+#include "MLX90640_API.h"
+#include "MLX90640_I2C_Driver.h"
 #include <myfunction.h>
 
-#include "esp_camera.h"
 
 // Import required libraries
-// #include <Adafruit_MLX90640.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+ #include <Adafruit_MLX90640.h>
+// #include <AsyncTCP.h>
 #include "html.h"
 
-// Bolometer - Replace with your own pinout
-#define I2C_SCL 13
-#define I2C_SDA 12
+const byte MLX90640_address = 0x33;  // Default 7-bit unshifted address of the MLX90640
+paramsMLX90640 mlx90640;
+float mlx90640To[768];
+#define TA_SHIFT 8  // Default shift for MLX90640 in open air
+#define I2C_SCL 14	// pb avec 12 et 13 sur ESP32 CAM
+#define I2C_SDA 2
 
 //
 // WARNING!!! PSRAM IC required for UXGA resolution and high JPEG quality
@@ -49,7 +55,7 @@
 // ===========================
 
 // Bolometer stuff
-// Adafruit_MLX90640 mlx;
+Adafruit_MLX90640 mlx;
 const size_t thermSize = (32 * 24) * sizeof(float);
 const size_t frameSize = thermSize + 30000 * sizeof(char);
 size_t imageSize = 0;
@@ -59,57 +65,34 @@ char frame[frameSize];  // buffer for full frame of temperatures and image
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-void log(String text) {
-	Serial.println(text);
-}
+// void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+// 	// AwsFrameInfo *info = (AwsFrameInfo *)arg;
+// 	// if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+// 	// 	data[len] = 0;
+// 	// 	String command = String((char *)data);
+// 	// 	if (command == "status") {
+// 	// 	}
+// 	// }
+// }
 
-void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-	// AwsFrameInfo *info = (AwsFrameInfo *)arg;
-	// if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-	// 	data[len] = 0;
-	// 	String command = String((char *)data);
-	// 	if (command == "status") {
-	// 	}
-	// }
-}
+// void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+// 			 void *arg, uint8_t *data, size_t len) {
+// 	switch (type) {
+// 		case WS_EVT_CONNECT:
+// 			break;
+// 		case WS_EVT_DISCONNECT:
+// 			break;
+// 		case WS_EVT_DATA:
+// 			// handleWebSocketMessage(arg, data, len);
+// 			break;
+// 		case WS_EVT_PONG:
+// 		case WS_EVT_ERROR:
+// 			break;
+// 	}
+// }
 
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-			 void *arg, uint8_t *data, size_t len) {
-	switch (type) {
-		case WS_EVT_CONNECT:
-			break;
-		case WS_EVT_DISCONNECT:
-			break;
-		case WS_EVT_DATA:
-			handleWebSocketMessage(arg, data, len);
-			break;
-		case WS_EVT_PONG:
-		case WS_EVT_ERROR:
-			break;
-	}
-}
-
-void setup() {
-	Serial.begin(115200);
-	Serial.setDebugOutput(true);
-	Serial.println();
-
-	mySmartConfig();
-
-	log("Setting up bolometer");
-	// Wire.begin(I2C_SDA, I2C_SCL);
-	// Wire.beginTransmission(MLX90640_I2CADDR_DEFAULT);
-
-	// mlx.begin(MLX90640_I2CADDR_DEFAULT, &Wire);
-	// mlx.setMode(MLX90640_CHESS);
-	// mlx.setResolution(MLX90640_ADC_16BIT);
-	// mlx90640_resolution_t res = mlx.getResolution();
-	// mlx.setRefreshRate(MLX90640_16_HZ);
-	// mlx90640_refreshrate_t rate = mlx.getRefreshRate();
-	// Wire.setClock(1000000);  // max 1 MHz
-	log("Bolometer setup");
-
-	log("Setting up camera");
+boolean initCamera(){
+	DEBUGLOG("Setting up camera\n");
 	camera_config_t config;
 	config.ledc_channel = LEDC_CHANNEL_0;
 	config.ledc_timer = LEDC_TIMER_0;
@@ -166,8 +149,8 @@ void setup() {
 	// camera init
 	esp_err_t err = esp_camera_init(&config);
 	if (err != ESP_OK) {
-		Serial.printf("Camera init failed with error 0x%x", err);
-		return;
+		DEBUGLOG("Camera init failed with error 0x%x", err);
+		return false;
 	}
 
 	sensor_t *s = esp_camera_sensor_get();
@@ -190,14 +173,83 @@ void setup() {
 #if defined(CAMERA_MODEL_ESP32S3_EYE)
 	s->set_vflip(s, 1);
 #endif
-	log("Camera setup");
+	DEBUGLOG("Camera setup");
+	return true;
+}
 
-	log("Setting web server");
-	ws.onEvent(onEvent);
+// Returns true if the MLX90640 is detected on the I2C bus
+boolean isConnected() {
+	Wire.beginTransmission((uint8_t)MLX90640_address);
+	if (Wire.endTransmission() != 0)
+		return (false);  // Sensor did not ACK
+	return (true);
+}
+
+boolean initMLX90640(){
+	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
+
+	if (isConnected() )
+		DEBUGLOG("MLX90640 online !\n");
+	else
+		DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
+
+	// Get device parameters - We only have to do this once
+	int status = 0;
+	uint16_t eeMLX90640[832];
+	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
+	if (status)
+		DEBUGLOG("MLX90640 Failed to load system parameters\n");
+	else
+		DEBUGLOG("MLX90640 system parameters loaded\n");
+
+	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
+	if (status)
+		DEBUGLOG("MLX90640 Parameter extraction failed\n");
+	else
+		DEBUGLOG("MLX90640 Parameter extracted\n");
+
+	int SetRefreshRate = MLX90640_SetRefreshRate(MLX90640_address, 0x03);
+	// int SetInterleavedMode = MLX90640_SetInterleavedMode(MLX90640_address);
+	int SetChessMode = MLX90640_SetChessMode(MLX90640_address);
+
+	return true;
+}
+
+
+boolean initMLX90640_v2(){
+	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
+	Wire.beginTransmission(MLX90640_I2CADDR_DEFAULT);
+
+	mlx.begin(MLX90640_I2CADDR_DEFAULT, &Wire);
+	mlx.setMode(MLX90640_CHESS);
+	mlx.setResolution(MLX90640_ADC_16BIT);
+	mlx90640_resolution_t res = mlx.getResolution();
+	mlx.setRefreshRate(MLX90640_16_HZ);
+	mlx90640_refreshrate_t rate = mlx.getRefreshRate();
+	Wire.setClock(1000000);  // max 1 MHz
+
+	return true;
+}
+
+// SETUP
+//==========================================================================
+
+void setup() {
+	DEBUGINIT();
+	mySmartConfig();
+
+	// ESP32 As access point
+	// WiFi.mode(WIFI_AP);  // Access Point mode
+	// WiFi.softAP(ssid, password);
+
+	initMLX90640_v2();
+
+	DEBUGLOG("Setting web server\n");
+	// ws.onEvent(onEvent);
 	server.addHandler(&ws);
 	server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) { request->send_P(200, "text/html", index_html); });
 	server.begin();
-	log("Webserver setup");
+	DEBUGLOG("Webserver setup\n");
 
 	pinMode(4, OUTPUT);
 	digitalWrite(4, LOW);
@@ -209,21 +261,20 @@ void take_snapshot() {
 	camera_fb_t *fb = NULL;
 	fb = esp_camera_fb_get();
 	if (!fb) {
-		log("Camera capture failed. Restarting");
-		ESP.restart();
+		DEBUGLOG("ERROR : Camera capture failed. Restarting\n");
 	}
-	log("Moving image to frame buffer " + String(fb->len) + " + " + String(thermSize) + " < " + String(frameSize));
+	DEBUGLOG("Moving image to frame buffer %d + %d < %d\n", fb->len ,thermSize,frameSize);
 	memcpy(&frame[thermSize], fb->buf, fb->len);
-	log("Image moved to frame buffer");
+	DEBUGLOG("Image moved to frame buffer\n");
 	imageSize = fb->len;
 	esp_camera_fb_return(fb);
 	fb = NULL;
 }
 
 void take_thermal() {
-	log("Taking thermal data to buffer");
-	// mlx.getFrame((float *)frame);
-	log("Thermal data taken");
+	DEBUGLOG("Taking thermal data to buffer\n");
+	mlx.getFrame((float *)frame);
+	DEBUGLOG("Thermal data taken\n");
 }
 
 unsigned long messageTimestamp = 0;
@@ -232,20 +283,20 @@ int messageCounter = 0;
 void loop() {
 	ArduinoOTA.handle();
 	ws.cleanupClients();
-	// uint64_t now = millis();
-	// if (now - messageTimestamp > 1000) {
-	// 	memset(frame, 0, frameSize);
-	// 	take_thermal();
-	// 	take_snapshot();
-	// 	log("Sending data");
-	// 	ws.binaryAll(frame, thermSize + imageSize);
-	// 	log("Data sent");
-	// 	messageTimestamp = now;
-	// 	messageCounter++;
-	// 	if (messageCounter > 30) {
-	// 		sendStatus();
-	// 		messageCounter = 0;
-	// 	}
-	// }
+	uint64_t now = millis();
+	if (now - messageTimestamp > 1000) {
+		memset(frame, 0, frameSize);
+		take_thermal();
+		take_snapshot();
+		DEBUGLOG("Sending data ...");
+		ws.binaryAll(frame, thermSize + imageSize);
+		DEBUGLOG("Data sent\n");
+		messageTimestamp = now;
+		messageCounter++;
+		if (messageCounter > 30) {
+			// sendStatus();
+			messageCounter = 0;
+		}
+	}
 	delay(100);
 }
