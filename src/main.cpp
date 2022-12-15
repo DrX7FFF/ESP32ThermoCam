@@ -4,22 +4,22 @@
 #include <Wire.h>
 #include <ESPAsyncWebServer.h>
 #include "esp_camera.h"
-#include "MLX90640_API.h"
-#include "MLX90640_I2C_Driver.h"
+// #include "MLX90640_API.h"
+// #include "MLX90640_I2C_Driver.h"
 #include <myfunction.h>
 
 
 // Import required libraries
- #include <Adafruit_MLX90640.h>
+//  #include <Adafruit_MLX90640.h> //TO REMOVE
 // #include <AsyncTCP.h>
 #include "html.h"
 
 const byte MLX90640_address = 0x33;  // Default 7-bit unshifted address of the MLX90640
-paramsMLX90640 mlx90640;
+// paramsMLX90640 mlx90640;
 float mlx90640To[768];
 #define TA_SHIFT 8  // Default shift for MLX90640 in open air
 #define I2C_SCL 14	// pb avec 12 et 13 sur ESP32 CAM
-#define I2C_SDA 2
+#define I2C_SDA 2 // Tester le 15 (Pb avec le 2 pour flasher via serial)
 
 //
 // WARNING!!! PSRAM IC required for UXGA resolution and high JPEG quality
@@ -55,7 +55,7 @@ float mlx90640To[768];
 // ===========================
 
 // Bolometer stuff
-Adafruit_MLX90640 mlx;
+// Adafruit_MLX90640 mlx;  //TO REMOVE
 const size_t thermSize = (32 * 24) * sizeof(float);
 const size_t frameSize = thermSize + 30000 * sizeof(char);
 size_t imageSize = 0;
@@ -185,51 +185,57 @@ boolean isConnected() {
 	return (true);
 }
 
-boolean initMLX90640(){
-	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
+// boolean initMLX90640(){
+// 	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
 
-	if (isConnected() )
-		DEBUGLOG("MLX90640 online !\n");
-	else
-		DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
+// 	if (isConnected() )
+// 		DEBUGLOG("MLX90640 online !\n");
+// 	else
+// 		DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
 
-	// Get device parameters - We only have to do this once
-	int status = 0;
-	uint16_t eeMLX90640[832];
-	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
-	if (status)
-		DEBUGLOG("MLX90640 Failed to load system parameters\n");
-	else
-		DEBUGLOG("MLX90640 system parameters loaded\n");
+// 	// Get device parameters - We only have to do this once
+// 	int status = 0;
+// 	uint16_t eeMLX90640[832];
+// 	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
+// 	if (status)
+// 		DEBUGLOG("MLX90640 Failed to load system parameters\n");
+// 	else
+// 		DEBUGLOG("MLX90640 system parameters loaded\n");
 
-	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
-	if (status)
-		DEBUGLOG("MLX90640 Parameter extraction failed\n");
-	else
-		DEBUGLOG("MLX90640 Parameter extracted\n");
+// 	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
+// 	if (status)
+// 		DEBUGLOG("MLX90640 Parameter extraction failed\n");
+// 	else
+// 		DEBUGLOG("MLX90640 Parameter extracted\n");
 
-	int SetRefreshRate = MLX90640_SetRefreshRate(MLX90640_address, 0x03);
-	// int SetInterleavedMode = MLX90640_SetInterleavedMode(MLX90640_address);
-	int SetChessMode = MLX90640_SetChessMode(MLX90640_address);
+// 	int SetRefreshRate = MLX90640_SetRefreshRate(MLX90640_address, 0x03);
+// 	// int SetInterleavedMode = MLX90640_SetInterleavedMode(MLX90640_address);
+// 	int SetChessMode = MLX90640_SetChessMode(MLX90640_address);
+// 	// MLX90640_SetResolution(0, (int)MLX90640_ADC_16BIT);
 
-	return true;
-}
+// 	return true;
+// }
 
 
-boolean initMLX90640_v2(){
-	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
-	Wire.beginTransmission(MLX90640_I2CADDR_DEFAULT);
+// boolean initMLX90640_v2(){
+// 	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
+// 	Wire.beginTransmission(MLX90640_I2CADDR_DEFAULT);
+// //	Wire.beginTransmission(MLX90640_address);
+// 	// if (isConnected() )
+// 	// 	DEBUGLOG("MLX90640 online !\n");
+// 	// else
+// 	// 	DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
 
-	mlx.begin(MLX90640_I2CADDR_DEFAULT, &Wire);
-	mlx.setMode(MLX90640_CHESS);
-	mlx.setResolution(MLX90640_ADC_16BIT);
-	mlx90640_resolution_t res = mlx.getResolution();
-	mlx.setRefreshRate(MLX90640_16_HZ);
-	mlx90640_refreshrate_t rate = mlx.getRefreshRate();
-	Wire.setClock(1000000);  // max 1 MHz
+// 	mlx.begin(MLX90640_I2CADDR_DEFAULT, &Wire);
+// 	mlx.setMode(MLX90640_CHESS);
+// 	mlx.setResolution(MLX90640_ADC_16BIT);
+// 	mlx90640_resolution_t res = mlx.getResolution();
+// 	mlx.setRefreshRate(MLX90640_16_HZ);
+// 	mlx90640_refreshrate_t rate = mlx.getRefreshRate();
+// 	Wire.setClock(1000000);  // max 1 MHz
 
-	return true;
-}
+// 	return true;
+// }
 
 // SETUP
 //==========================================================================
@@ -242,7 +248,9 @@ void setup() {
 	// WiFi.mode(WIFI_AP);  // Access Point mode
 	// WiFi.softAP(ssid, password);
 
-	initMLX90640_v2();
+	DEBUGLOG("Init MLX90640 ...\n");
+	// initMLX90640();
+	// initMLX90640_v2();
 
 	DEBUGLOG("Setting web server\n");
 	// ws.onEvent(onEvent);
@@ -262,6 +270,7 @@ void take_snapshot() {
 	fb = esp_camera_fb_get();
 	if (!fb) {
 		DEBUGLOG("ERROR : Camera capture failed. Restarting\n");
+//		return;
 	}
 	DEBUGLOG("Moving image to frame buffer %d + %d < %d\n", fb->len ,thermSize,frameSize);
 	memcpy(&frame[thermSize], fb->buf, fb->len);
@@ -271,11 +280,39 @@ void take_snapshot() {
 	fb = NULL;
 }
 
-void take_thermal() {
-	DEBUGLOG("Taking thermal data to buffer\n");
-	mlx.getFrame((float *)frame);
-	DEBUGLOG("Thermal data taken\n");
-}
+// void take_thermal() {
+// 	DEBUGLOG("Taking thermal data to buffer\n");
+// 	//  mlx.getFrame((float *)frame);
+
+// 	float emissivity = 0.95;
+// 	float tr = 23.15;
+// 	uint16_t mlx90640Frame[834];
+// 	int status;
+
+// 	for (uint8_t page = 0; page < 2; page++) {
+// 		status = MLX90640_GetFrameData(MLX90640_address, mlx90640Frame);
+
+// 		#ifdef MLX90640_DEBUG
+// 			Serial.printf("Page%d = [", page);
+// 			for (int i = 0; i < 834; i++) {
+// 			Serial.printf("0x%x, ", mlx90640Frame[i]);
+// 			}
+// 			Serial.println("]");
+// 		#endif
+
+// 		if (status < 0){
+// 			DEBUGLOG("Status Error : %d\nExit\n", status);
+// 			return;
+// 		}
+// 		tr = MLX90640_GetTa(mlx90640Frame, &mlx90640) -	TA_SHIFT; // For a MLX90640 in the open air the shift is -8°C
+// 	#ifdef MLX90640_DEBUG
+// 		Serial.print("Tr = ");
+// 		Serial.println(tr, 8);
+// 	#endif
+// 		MLX90640_CalculateTo(mlx90640Frame, &mlx90640, emissivity, tr, (float *)frame);
+// 	}
+// 	DEBUGLOG("Thermal data taken\n");
+// }
 
 unsigned long messageTimestamp = 0;
 int messageCounter = 0;
@@ -286,7 +323,7 @@ void loop() {
 	uint64_t now = millis();
 	if (now - messageTimestamp > 1000) {
 		memset(frame, 0, frameSize);
-		take_thermal();
+		// take_thermal();
 		take_snapshot();
 		DEBUGLOG("Sending data ...");
 		ws.binaryAll(frame, thermSize + imageSize);
