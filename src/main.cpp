@@ -4,8 +4,8 @@
 #include <Wire.h>
 #include <ESPAsyncWebServer.h>
 #include "esp_camera.h"
-// #include "MLX90640_API.h"
-// #include "MLX90640_I2C_Driver.h"
+#include "MLX90640_API.h"
+#include "MLX90640_I2C_Driver.h"
 #include <myfunction.h>
 
 
@@ -15,11 +15,11 @@
 #include "html.h"
 
 const byte MLX90640_address = 0x33;  // Default 7-bit unshifted address of the MLX90640
-// paramsMLX90640 mlx90640;
+paramsMLX90640 mlx90640;
 float mlx90640To[768];
 #define TA_SHIFT 8  // Default shift for MLX90640 in open air
 #define I2C_SCL 14	// pb avec 12 et 13 sur ESP32 CAM
-#define I2C_SDA 2 // Tester le 15 (Pb avec le 2 pour flasher via serial)
+#define I2C_SDA 15 // Tester le 15 (Pb avec le 2 pour flasher via serial)
 
 //
 // WARNING!!! PSRAM IC required for UXGA resolution and high JPEG quality
@@ -123,28 +123,28 @@ boolean initCamera(){
 
 	// if PSRAM IC present, init with UXGA resolution and higher JPEG quality
 	//                      for larger pre-allocated frame buffer.
-	// 	if (config.pixel_format == PIXFORMAT_JPEG) {
-	// 		if (psramFound()) {
-	// 			config.jpeg_quality = 10;
-	// 			config.fb_count = 2;
-	// 			config.grab_mode = CAMERA_GRAB_LATEST;
-	// 		} else {
-	// 			// Limit the frame size when PSRAM is not available
-	// 			config.frame_size = FRAMESIZE_SVGA;
-	// 			config.fb_location = CAMERA_FB_IN_DRAM;
-	// 		}
-	// 	} else {
-	// 		// Best option for face detection/recognition
-	// 		config.frame_size = FRAMESIZE_240X240;
-	// #if CONFIG_IDF_TARGET_ESP32S3
-	// 		config.fb_count = 2;
-	// #endif
-	// 	}
+		if (config.pixel_format == PIXFORMAT_JPEG) {
+			if (psramFound()) {
+				config.jpeg_quality = 10;
+				config.fb_count = 2;
+				config.grab_mode = CAMERA_GRAB_LATEST;
+			} else {
+				// Limit the frame size when PSRAM is not available
+				config.frame_size = FRAMESIZE_SVGA;
+				config.fb_location = CAMERA_FB_IN_DRAM;
+			}
+		} else {
+			// Best option for face detection/recognition
+			config.frame_size = FRAMESIZE_240X240;
+	#if CONFIG_IDF_TARGET_ESP32S3
+			config.fb_count = 2;
+	#endif
+		}
 
-	// #if defined(CAMERA_MODEL_ESP_EYE)
-	// 	pinMode(13, INPUT_PULLUP);
-	// 	pinMode(14, INPUT_PULLUP);
-	// #endif
+	#if defined(CAMERA_MODEL_ESP_EYE)
+		pinMode(13, INPUT_PULLUP);
+		pinMode(14, INPUT_PULLUP);
+	#endif
 
 	// camera init
 	esp_err_t err = esp_camera_init(&config);
@@ -185,36 +185,36 @@ boolean isConnected() {
 	return (true);
 }
 
-// boolean initMLX90640(){
-// 	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
+boolean initMLX90640(){
+	Wire.begin(I2C_SDA, I2C_SCL, 400000); // Increase I2C clock speed to 400kHz
 
-// 	if (isConnected() )
-// 		DEBUGLOG("MLX90640 online !\n");
-// 	else
-// 		DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
+	if (isConnected() )
+		DEBUGLOG("MLX90640 online !\n");
+	else
+		DEBUGLOG("MLX90640 not detected at default I2C address. Please check wiring.\n");
 
-// 	// Get device parameters - We only have to do this once
-// 	int status = 0;
-// 	uint16_t eeMLX90640[832];
-// 	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
-// 	if (status)
-// 		DEBUGLOG("MLX90640 Failed to load system parameters\n");
-// 	else
-// 		DEBUGLOG("MLX90640 system parameters loaded\n");
+	// Get device parameters - We only have to do this once
+	int status = 0;
+	uint16_t eeMLX90640[832];
+	status = MLX90640_DumpEE(MLX90640_address, eeMLX90640);
+	if (status)
+		DEBUGLOG("MLX90640 Failed to load system parameters\n");
+	else
+		DEBUGLOG("MLX90640 system parameters loaded\n");
 
-// 	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
-// 	if (status)
-// 		DEBUGLOG("MLX90640 Parameter extraction failed\n");
-// 	else
-// 		DEBUGLOG("MLX90640 Parameter extracted\n");
+	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
+	if (status)
+		DEBUGLOG("MLX90640 Parameter extraction failed\n");
+	else
+		DEBUGLOG("MLX90640 Parameter extracted\n");
 
-// 	int SetRefreshRate = MLX90640_SetRefreshRate(MLX90640_address, 0x03);
-// 	// int SetInterleavedMode = MLX90640_SetInterleavedMode(MLX90640_address);
-// 	int SetChessMode = MLX90640_SetChessMode(MLX90640_address);
-// 	// MLX90640_SetResolution(0, (int)MLX90640_ADC_16BIT);
+	int SetRefreshRate = MLX90640_SetRefreshRate(MLX90640_address, 0x03);
+	// int SetInterleavedMode = MLX90640_SetInterleavedMode(MLX90640_address);
+	int SetChessMode = MLX90640_SetChessMode(MLX90640_address);
+	// MLX90640_SetResolution(0, (int)MLX90640_ADC_16BIT);
 
-// 	return true;
-// }
+	return true;
+}
 
 
 // boolean initMLX90640_v2(){
@@ -249,8 +249,11 @@ void setup() {
 	// WiFi.softAP(ssid, password);
 
 	DEBUGLOG("Init MLX90640 ...\n");
-	// initMLX90640();
+	initMLX90640();
 	// initMLX90640_v2();
+
+	DEBUGLOG("Init Camera ...\n");
+	initCamera();
 
 	DEBUGLOG("Setting web server\n");
 	// ws.onEvent(onEvent);
@@ -259,8 +262,8 @@ void setup() {
 	server.begin();
 	DEBUGLOG("Webserver setup\n");
 
-	pinMode(4, OUTPUT);
-	digitalWrite(4, LOW);
+	// pinMode(4, OUTPUT);
+	// digitalWrite(4, LOW);
 
 	ArduinoOTA.begin();
 }
@@ -270,7 +273,7 @@ void take_snapshot() {
 	fb = esp_camera_fb_get();
 	if (!fb) {
 		DEBUGLOG("ERROR : Camera capture failed. Restarting\n");
-//		return;
+		return;
 	}
 	DEBUGLOG("Moving image to frame buffer %d + %d < %d\n", fb->len ,thermSize,frameSize);
 	memcpy(&frame[thermSize], fb->buf, fb->len);
@@ -280,39 +283,39 @@ void take_snapshot() {
 	fb = NULL;
 }
 
-// void take_thermal() {
-// 	DEBUGLOG("Taking thermal data to buffer\n");
-// 	//  mlx.getFrame((float *)frame);
+void take_thermal() {
+	DEBUGLOG("Taking thermal data to buffer\n");
+	//  mlx.getFrame((float *)frame);
 
-// 	float emissivity = 0.95;
-// 	float tr = 23.15;
-// 	uint16_t mlx90640Frame[834];
-// 	int status;
+	float emissivity = 0.95;
+	float tr = 23.15;
+	uint16_t mlx90640Frame[834];
+	int status;
 
-// 	for (uint8_t page = 0; page < 2; page++) {
-// 		status = MLX90640_GetFrameData(MLX90640_address, mlx90640Frame);
+	for (uint8_t page = 0; page < 2; page++) {
+		status = MLX90640_GetFrameData(MLX90640_address, mlx90640Frame);
 
-// 		#ifdef MLX90640_DEBUG
-// 			Serial.printf("Page%d = [", page);
-// 			for (int i = 0; i < 834; i++) {
-// 			Serial.printf("0x%x, ", mlx90640Frame[i]);
-// 			}
-// 			Serial.println("]");
-// 		#endif
+		#ifdef MLX90640_DEBUG
+			Serial.printf("Page%d = [", page);
+			for (int i = 0; i < 834; i++) {
+			Serial.printf("0x%x, ", mlx90640Frame[i]);
+			}
+			Serial.println("]");
+		#endif
 
-// 		if (status < 0){
-// 			DEBUGLOG("Status Error : %d\nExit\n", status);
-// 			return;
-// 		}
-// 		tr = MLX90640_GetTa(mlx90640Frame, &mlx90640) -	TA_SHIFT; // For a MLX90640 in the open air the shift is -8°C
-// 	#ifdef MLX90640_DEBUG
-// 		Serial.print("Tr = ");
-// 		Serial.println(tr, 8);
-// 	#endif
-// 		MLX90640_CalculateTo(mlx90640Frame, &mlx90640, emissivity, tr, (float *)frame);
-// 	}
-// 	DEBUGLOG("Thermal data taken\n");
-// }
+		if (status < 0){
+			DEBUGLOG("Status Error : %d\nExit\n", status);
+			return;
+		}
+		tr = MLX90640_GetTa(mlx90640Frame, &mlx90640) -	TA_SHIFT; // For a MLX90640 in the open air the shift is -8°C
+	#ifdef MLX90640_DEBUG
+		Serial.print("Tr = ");
+		Serial.println(tr, 8);
+	#endif
+		MLX90640_CalculateTo(mlx90640Frame, &mlx90640, emissivity, tr, (float *)frame);
+	}
+	DEBUGLOG("Thermal data taken\n");
+}
 
 unsigned long messageTimestamp = 0;
 int messageCounter = 0;
@@ -321,9 +324,9 @@ void loop() {
 	ArduinoOTA.handle();
 	ws.cleanupClients();
 	uint64_t now = millis();
-	if (now - messageTimestamp > 1000) {
+	if (now - messageTimestamp > 50) {
 		memset(frame, 0, frameSize);
-		// take_thermal();
+		take_thermal();
 		take_snapshot();
 		DEBUGLOG("Sending data ...");
 		ws.binaryAll(frame, thermSize + imageSize);
