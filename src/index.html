@@ -259,32 +259,41 @@
 		</div>
 	</div>
 	<script>
-		const host = window.location.hostname + "/ws";
+		const host = "192.168.1.140/ws";
 		const sizeX = 32;
 		const sizeY = 24;
 		const multiplier = 20;
 		let rangeMin = 20;
 		let rangeMax = 40;
 		let adaptiveRange = false;
-		const palettes = [{
-			name: "FLIR Transparent",
-			stops: ["#00000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
+        const palettes = [{
+            name: "FLIR Transparent",
+            stops: ["#00000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
 		}, {
-			name: "FLIR",
-			stops: ["#000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
+			name: "Centre",
+			stops: ["#00000000", "#20008C", "#CC0077", "#FFD700", "#00000000"]
 		}, {
-			name: "BW Transparent",
-			stops: ["#00000000", "#FFFFFF"]
+			name: "Haut",
+			stops: ["#00000000", "#20008C", "#CC0077", "#FFD700"]
 		}, {
-			name: "BW",
-			stops: ["#000000", "#FFFFFF"]
-		}, {
-			name: "WB Transparent",
-			stops: ["#FFFFFF00", "#000000"]
-		}, {
-			name: "WB",
-			stops: ["#FFFFFF", "#000000"]
-		}];
+			name: "Bas",
+			stops: ["#20008C", "#CC0077", "#FFD700", "#00000000"]
+        }, {
+            name: "FLIR",
+            stops: ["#000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
+        }, {
+            name: "BW Transparent",
+            stops: ["#00000000", "#FFFFFF"]
+        }, {
+            name: "BW",
+            stops: ["#000000", "#FFFFFF"]
+        }, {
+            name: "WB Transparent",
+            stops: ["#FFFFFF00", "#000000"]
+        }, {
+            name: "WB",
+            stops: ["#FFFFFF", "#000000"]
+        }];
 		let currentPalette = null;
 		const paletteSelect = document.getElementById('paletteValue');
 		if (paletteSelect.options.length != palettes.length) {

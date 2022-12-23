@@ -20,6 +20,9 @@ float mlx90640To[768];
 #define TA_SHIFT 8  // Default shift for MLX90640 in open air
 #define I2C_SCL 14	// pb avec 12 et 13 sur ESP32 CAM
 #define I2C_SDA 15 // Tester le 15 (Pb avec le 2 pour flasher via serial)
+#define LED_GPIO_NUM	33
+#define FLASH_GPIO_NUM	4
+
 
 //
 // WARNING!!! PSRAM IC required for UXGA resolution and high JPEG quality
@@ -242,6 +245,12 @@ boolean initMLX90640(){
 
 void setup() {
 	DEBUGINIT();
+
+	pinMode(FLASH_GPIO_NUM, OUTPUT);
+	digitalWrite(FLASH_GPIO_NUM, LOW);
+	pinMode(LED_GPIO_NUM, OUTPUT);
+	digitalWrite(LED_GPIO_NUM, LOW);
+
 	mySmartConfig();
 
 	// ESP32 As access point
@@ -261,9 +270,6 @@ void setup() {
 	server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) { request->send_P(200, "text/html", index_html); });
 	server.begin();
 	DEBUGLOG("Webserver setup\n");
-
-	// pinMode(4, OUTPUT);
-	// digitalWrite(4, LOW);
 
 	ArduinoOTA.begin();
 }
@@ -324,7 +330,8 @@ void loop() {
 	ArduinoOTA.handle();
 	ws.cleanupClients();
 	uint64_t now = millis();
-	if (now - messageTimestamp > 50) {
+if (now - messageTimestamp > 50) {
+		digitalWrite(LED_GPIO_NUM, HIGH);
 		memset(frame, 0, frameSize);
 		take_thermal();
 		take_snapshot();
@@ -337,6 +344,7 @@ void loop() {
 			// sendStatus();
 			messageCounter = 0;
 		}
+		digitalWrite(LED_GPIO_NUM, LOW);
 	}
 	delay(100);
 }

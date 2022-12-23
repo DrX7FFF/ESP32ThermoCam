@@ -763,6 +763,15 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
         const palettes = [{
             name: "FLIR Transparent",
             stops: ["#00000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
+		}, {
+			name: "Centre",
+			stops: ["#00000000", "#20008C", "#CC0077", "#FFD700", "#00000000"]
+		}, {
+			name: "Haut",
+			stops: ["#00000000", "#20008C", "#CC0077", "#FFD700"]
+		}, {
+			name: "Bas",
+			stops: ["#20008C", "#CC0077", "#FFD700", "#00000000"]
         }, {
             name: "FLIR",
             stops: ["#000000", "#20008C", "#CC0077", "#FFD700", "#FFFFFF"]
